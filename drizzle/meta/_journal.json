@@ -8,6 +8,13 @@
       "when": 1755338335333,
       "tag": "0000_rapid_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1755341468302,
+      "tag": "0001_groovy_thunderball",
+      "breakpoints": true
     }
   ]
 }
