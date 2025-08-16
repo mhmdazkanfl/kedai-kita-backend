@@ -1,6 +1,8 @@
+import swagger from '@elysiajs/swagger';
 import { Elysia } from 'elysia';
 
 const app = new Elysia()
+  .use(swagger())
   .get(
     '/health',
     () => `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
