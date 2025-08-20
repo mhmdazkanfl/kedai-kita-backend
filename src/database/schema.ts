@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm';
+import { relations } from 'drizzle-orm'
 import {
   pgTable,
   varchar,
@@ -7,7 +7,7 @@ import {
   text,
   boolean,
   index,
-} from 'drizzle-orm/pg-core';
+} from 'drizzle-orm/pg-core'
 
 export const user = pgTable('user', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -15,7 +15,7 @@ export const user = pgTable('user', {
   password: varchar('password').notNull(), // Store hashed password
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
-});
+})
 
 export const refreshToken = pgTable(
   'refresh_token',
@@ -31,23 +31,23 @@ export const refreshToken = pgTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => [index('user_id_idx').on(table.userId)],
-);
+)
 
 // Relations
 export const userRelations = relations(user, ({ many }) => ({
   refreshTokens: many(refreshToken),
-}));
+}))
 
 export const refreshTokenRelations = relations(refreshToken, ({ one }) => ({
   user: one(user, {
     fields: [refreshToken.userId],
     references: [user.id],
   }),
-}));
+}))
 
 export const table = {
   user,
   refreshToken,
-} as const;
+} as const
 
-export type Table = typeof table;
+export type Table = typeof table
