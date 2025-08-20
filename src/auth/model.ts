@@ -8,7 +8,7 @@ export const enum Status {
 }
 
 export const authModel = new Elysia().model({
-  'Register Body': t.Object({
+  registerBody: t.Object({
     username: t.String({
       minLength: 3,
       maxLength: 20,
@@ -51,7 +51,7 @@ export const authModel = new Elysia().model({
     }),
   }),
 
-  'Register Success Response': t.Object({
+  registerResponse: t.Object({
     status: t.UnionEnum([Status.SUCCESS, Status.FAIL, Status.ERROR]),
     message: t.String(),
     data: t.Object({
