@@ -1,5 +1,6 @@
 import Elysia, { t } from 'elysia'
 import { ValueErrorType } from '@sinclair/typebox/errors'
+import { Value } from '@sinclair/typebox/build/cjs/value'
 
 export const enum Status {
   SUCCESS = 'success',
@@ -24,6 +25,7 @@ export const authModel = new Elysia().model({
             return 'Nama pengguna hanya boleh mengandung karakter alfanumerik dan garis bawah'
           case ValueErrorType.String:
           case ValueErrorType.Undefined:
+          case ValueErrorType.Null:
             return 'Nama pengguna harus berupa string'
           default:
             return 'Format nama pengguna tidak valid.'
@@ -43,6 +45,7 @@ export const authModel = new Elysia().model({
             return 'Kata sandi harus antara 6 sampai 100 karakter'
           case ValueErrorType.String:
           case ValueErrorType.Undefined:
+          case ValueErrorType.Null:
             return 'Kata sandi harus berupa string'
           default:
             return 'Format kata sandi tidak valid.'
