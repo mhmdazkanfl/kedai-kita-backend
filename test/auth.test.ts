@@ -1,21 +1,21 @@
-import { describe, expect, it, jest } from 'bun:test';
-import { treaty } from '@elysiajs/eden';
-import { auth } from '../src/auth';
-import { Status } from '../src/auth/model';
-import { db } from '../src/database';
+import { describe, expect, it, jest } from 'bun:test'
+import { treaty } from '@elysiajs/eden'
+import { auth } from '../src/auth'
+import { Status } from '@/common/enum'
+import { db } from '../src/database'
 
-const api = treaty(auth);
+const api = treaty(auth)
 
 describe('Authentication', () => {
   it('success register response', async () => {
     const payload = {
       username: 'testuser',
       password: 'testpass',
-    };
+    }
 
-    const { data, status } = await api.auth.register.post(payload);
+    const { data, status } = await api.auth.register.post(payload)
 
-    expect(status).toBeWithin(200, 299);
+    expect(status).toBeWithin(200, 299)
     expect(data).toEqual({
       status: Status.SUCCESS,
       message: expect.any(String),
@@ -23,40 +23,40 @@ describe('Authentication', () => {
         id: expect.any(String),
         username: payload.username,
       },
-    });
-  });
+    })
+  })
 
   it('fail register response', async () => {
     const payload = {
-      username: 1,
-      password: 1,
-    };
+      username: '',
+      password: '',
+    }
 
-    const { data, status } = await api.auth.register.post(payload);
+    const { data, status } = await api.auth.register.post(payload)
 
-    expect(status).toBeWithin(400, 499);
+    expect(status).toBeWithin(400, 499)
     expect(data).toEqual({
       status: Status.FAIL,
       message: expect.any(String),
-    });
-  });
+    })
+  })
 
   it('error register response', async () => {
     const payload = {
       username: 'testuser',
       password: 'testpass',
-    };
+    }
 
     jest.spyOn(db, 'insert').mockImplementation(() => {
-      throw new Error('DB connection failed');
-    });
+      throw new Error('DB connection failed')
+    })
 
-    const { data, status } = await api.auth.register.post(payload);
+    const { data, status } = await api.auth.register.post(payload)
 
-    expect(status).toBeWithin(500, 599);
+    expect(status).toBeWithin(500, 599)
     expect(data).toEqual({
       status: Status.ERROR,
       message: expect.any(String),
-    });
-  });
-});
+    })
+  })
+})

@@ -1,48 +1,59 @@
-import { Elysia, status, t } from 'elysia'
-import { authModel, Status } from './model'
-import { AuthService } from './service'
-import { errorModel } from '../common/model'
+import { Elysia, t } from 'elysia'
+import { authModel } from '@/auth/model'
+import { errorModel } from '@/common/model'
+import { Status } from '@/common/enum'
+import { AuthService } from '@/auth/service'
 
-export const auth = new Elysia({ prefix: '/auth' })
+export const auth = new Elysia({ prefix: '/auth', name: 'service/auth' })
   .use(authModel)
   .use(errorModel)
-  .onRequest(({ request }) => {
-    if (request.headers.get('content-type') !== 'application/json') {
-      return status(400, {
-        status: Status.FAIL,
-        message: 'Content Type pada request body tidak sesuai',
-      })
-    }
+  .guard({
+    response: {
+      400: 'errorFail',
+      409: 'errorFail',
+      422: 'errorFail',
+      500: 'errorError',
+    },
   })
-  .onError(({ code, error }) => {
-    if (code === 'VALIDATION') {
-      return status(422, {
-        status: Status.FAIL,
-        message: error.message,
-      })
-    }
+  .onError(({ code, error, status }) => {
+    console.error('Error occurred:', error)
 
-    if (code === 'PARSE') {
-      return status(400, {
-        status: Status.FAIL,
-        message: 'Gagal memparsing request body',
-      })
+    switch (code) {
+      case 'VALIDATION':
+        return status(422, {
+          status: Status.FAIL,
+          message: error.message,
+        })
+      case 'PARSE':
+        return status(400, {
+          status: Status.FAIL,
+          message: 'Gagal memparsing request body',
+        })
+
+      default:
+        return status(500, {
+          status: Status.ERROR,
+          message: 'Terjadi kesalahan yang tidak diketahui',
+        })
     }
   })
   .post(
     '/register',
-    async ({ body }) => {
-      const result = await AuthService.register(body.username, body.password)
+    async ({ body: { username, password }, status }) => {
+      if (await AuthService.isUsernameTaken(username)) {
+        return status(409, {
+          status: Status.FAIL,
+          message: 'Nama pengguna sudah ada',
+        })
+      }
+
+      const result = await AuthService.createUser(username, password)
       return status(201, result)
     },
     {
-      body: t.Ref('registerBody'),
+      body: 'registerBody',
       response: {
-        201: t.Ref('registerResponse'),
-        400: t.Ref('errorResponse'),
-        422: t.Ref('errorResponse'),
-        500: t.Ref('errorResponse'),
+        201: 'registerResponse',
       },
     },
   )
-  .post('/login', {})
