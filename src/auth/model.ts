@@ -1,57 +1,26 @@
 import Elysia, { t } from 'elysia'
-import { ValueErrorType } from '@sinclair/typebox/errors'
+import { Status } from '@/common/enum'
 
-export const enum Status {
-  SUCCESS = 'success',
-  FAIL = 'fail',
-  ERROR = 'error',
-}
-
-export const authModel = new Elysia().model({
-  'Register Body': t.Object({
+export const authModel = new Elysia({ name: 'model/auth' }).model({
+  registerBody: t.Object({
     username: t.String({
       minLength: 3,
       maxLength: 20,
       pattern: '^[a-zA-Z0-9_]+$',
-      error: ({ value, validator }) => {
-        const type = validator.Errors(value).First()?.type
-
-        switch (type) {
-          case ValueErrorType.StringMinLength:
-          case ValueErrorType.StringMaxLength:
-            return 'Nama pengguna harus antara 3 sampai 20 karakter'
-          case ValueErrorType.StringPattern:
-            return 'Nama pengguna hanya boleh mengandung karakter alfanumerik dan garis bawah'
-          case ValueErrorType.String:
-          case ValueErrorType.Undefined:
-            return 'Nama pengguna harus berupa string'
-          default:
-            return 'Format nama pengguna tidak valid.'
-        }
-      },
+      error:
+        'Username harus terdiri dari 3-20 karakter dan hanya boleh berisi huruf, angka, atau underscore.',
     }),
 
     password: t.String({
       minLength: 6,
-      maxLength: 100,
-      error: ({ value, validator }) => {
-        const type = validator.Errors(value).First()?.type
-
-        switch (type) {
-          case ValueErrorType.StringMinLength:
-          case ValueErrorType.StringMaxLength:
-            return 'Kata sandi harus antara 6 sampai 100 karakter'
-          case ValueErrorType.String:
-          case ValueErrorType.Undefined:
-            return 'Kata sandi harus berupa string'
-          default:
-            return 'Format kata sandi tidak valid.'
-        }
-      },
+      maxLength: 20,
+      pattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).+$',
+      error:
+        'Kata sandi harus terdiri dari 6-20 karakter dan mengandung setidaknya satu huruf besar, satu huruf kecil, satu angka, dan satu simbol.',
     }),
   }),
 
-  'Register Success Response': t.Object({
+  registerResponse: t.Object({
     status: t.UnionEnum([Status.SUCCESS, Status.FAIL, Status.ERROR]),
     message: t.String(),
     data: t.Object({
