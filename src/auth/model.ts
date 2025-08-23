@@ -8,7 +8,7 @@ export const authModel = new Elysia({ name: 'model/auth' }).model({
       maxLength: 20,
       pattern: '^[a-zA-Z0-9_]+$',
       error:
-        'Username harus terdiri dari 3-20 karakter dan hanya boleh berisi huruf, angka, atau underscore.',
+        'Nama pengguna harus terdiri dari 3-20 karakter dan hanya boleh berisi huruf, angka, atau underscore.',
     }),
 
     password: t.String({
@@ -26,6 +26,29 @@ export const authModel = new Elysia({ name: 'model/auth' }).model({
     data: t.Object({
       id: t.String({ format: 'uuid' }),
       username: t.String(),
+    }),
+  }),
+
+  loginBody: t.Object({
+    username: t.String({
+      minLength: 1,
+      error: 'Nama pengguna harus berupa string dan tidak boleh kosong',
+    }),
+
+    password: t.String({
+      minLength: 1,
+      error: 'Kata sandi harus berupa string dan tidak boleh kosong',
+    }),
+  }),
+
+  loginResponse: t.Object({
+    status: t.UnionEnum([Status.SUCCESS, Status.FAIL, Status.ERROR]),
+    message: t.String(),
+    data: t.Object({
+      id: t.String({ format: 'uuid' }),
+      username: t.String(),
+      accessToken: t.String(),
+      refreshToken: t.String(),
     }),
   }),
 })
