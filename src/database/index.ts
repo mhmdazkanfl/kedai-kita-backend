@@ -1,41 +1,8 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
-import { refreshToken, user } from '@/database/schema'
-import { eq } from 'drizzle-orm'
 
-export const db = drizzle(process.env.DATABASE_URL!)
+const db = drizzle(process.env.DATABASE_URL!)
 
-export abstract class DatabaseService {
-  static async findUserByUsername(
-    username: string,
-  ): Promise<{ id: string; username: string; password: string } | null> {
-    const result = await db
-      .select({ id: user.id, username: user.username, password: user.password })
-      .from(user)
-      .where(eq(user.username, username))
-    return result[0] || null
-  }
-
-  static async insertUser(username: string, hashedPassword: string) {
-    return await db
-      .insert(user)
-      .values({ username, password: hashedPassword })
-      .returning()
-      .onConflictDoNothing()
-  }
-
-  static async insertRefreshToken(
-    usedId: string,
-    token: string,
-    expireAt: Date,
-  ) {
-    return await db
-      .insert(refreshToken)
-      .values({ userId: usedId, token, expiresAt: expireAt })
-      .returning()
-      .onConflictDoNothing()
-  }
-}
-
+export default db
 // if (error instanceof DrizzleQueryError) {
 //   const code = (error.cause as SystemError).code
 //   switch (code) {

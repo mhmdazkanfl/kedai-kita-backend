@@ -1,8 +1,3 @@
-/**
- * Create a JWT exp timestamp
- * @param option Object with time units
- * @returns number (Unix timestamp in seconds)
- */
 export function createJWTExp(option: {
   seconds?: number
   minutes?: number

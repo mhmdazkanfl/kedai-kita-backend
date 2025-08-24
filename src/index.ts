@@ -2,7 +2,7 @@ require('dotenv').config({ path: './.env.local' })
 
 import swagger from '@elysiajs/swagger'
 import { Elysia } from 'elysia'
-import { auth } from '@/auth'
+import auth from './auth'
 
 const app = new Elysia()
   .use(swagger())

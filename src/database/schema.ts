@@ -1,4 +1,4 @@
-import { relations } from 'drizzle-orm'
+// import { relations } from 'drizzle-orm'
 import {
   pgTable,
   varchar,
@@ -34,20 +34,31 @@ export const refreshToken = pgTable(
 )
 
 // Relations
-export const userRelations = relations(user, ({ many }) => ({
-  refreshTokens: many(refreshToken),
-}))
+// export const userRelations = relations(user, ({ many }) => ({
+//   refreshTokens: many(refreshToken),
+// }))
 
-export const refreshTokenRelations = relations(refreshToken, ({ one }) => ({
-  user: one(user, {
-    fields: [refreshToken.userId],
-    references: [user.id],
-  }),
-}))
+// export const refreshTokenRelations = relations(refreshToken, ({ one }) => ({
+//   user: one(user, {
+//     fields: [refreshToken.userId],
+//     references: [user.id],
+//   }),
+// }))
 
-export const table = {
-  user,
-  refreshToken,
-} as const
+// export const table = {
+//   user,
+//   refreshToken,
+// } as const
 
-export type Table = typeof table
+// export type Table = typeof table
+
+// requires you passed { schema } to drizzle(...)
+// const u = await db.query.user.findFirst({
+//   where: eq(user.username, 'alice'),
+//   with: { refreshTokens: true },   // <-- needs relations(user, ...)
+// });
+
+// const tokens = await db.query.refreshToken.findMany({
+//   where: eq(refreshToken.isRevoked, false),
+//   with: { user: true },            // <-- needs relations(refreshToken, ...)
+// });
