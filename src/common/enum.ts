@@ -1,8 +1,10 @@
-// Optionally, define a constant for usage if needed
-export type Status = 'success' | 'fail' | 'error'
-
-export const STATUS = {
+const ResponseStatus = {
   SUCCESS: 'success',
   FAIL: 'fail',
   ERROR: 'error',
 } as const
+
+type ResponseStatusType = (typeof ResponseStatus)[keyof typeof ResponseStatus]
+
+export { ResponseStatus }
+export type { ResponseStatusType }

@@ -9,7 +9,7 @@ import {
   index,
 } from 'drizzle-orm/pg-core'
 
-export const user = pgTable('user', {
+const user = pgTable('user', {
   id: uuid('id').defaultRandom().primaryKey(),
   username: varchar('username').notNull().unique(),
   password: varchar('password').notNull(), // Store hashed password
@@ -17,7 +17,7 @@ export const user = pgTable('user', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 })
 
-export const refreshToken = pgTable(
+const refreshToken = pgTable(
   'refresh_token',
   {
     id: uuid('id').defaultRandom().primaryKey(),
@@ -32,6 +32,8 @@ export const refreshToken = pgTable(
   },
   (table) => [index('user_id_idx').on(table.userId)],
 )
+
+export const schema = { user, refreshToken }
 
 // Relations
 // export const userRelations = relations(user, ({ many }) => ({

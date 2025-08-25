@@ -1,8 +1,8 @@
 import { describe, expect, it, jest } from 'bun:test'
 import { treaty } from '@elysiajs/eden'
-import { auth } from '../src/auth'
-import { Status } from '@/common/enum'
-import { db } from '../src/database'
+import auth from '../src/auth'
+import db from '../src/database'
+import { ResponseStatus } from '../src/common/enum'
 
 const api = treaty(auth)
 
@@ -17,7 +17,7 @@ describe('Authentication', () => {
 
     expect(status).toBeWithin(200, 299)
     expect(data).toEqual({
-      status: Status.SUCCESS,
+      status: ResponseStatus.SUCCESS,
       message: expect.any(String),
       data: {
         id: expect.any(String),
@@ -36,7 +36,7 @@ describe('Authentication', () => {
 
     expect(status).toBeWithin(400, 499)
     expect(data).toEqual({
-      status: Status.FAIL,
+      status: ResponseStatus.FAIL,
       message: expect.any(String),
     })
   })
@@ -55,7 +55,7 @@ describe('Authentication', () => {
 
     expect(status).toBeWithin(500, 599)
     expect(data).toEqual({
-      status: Status.ERROR,
+      status: ResponseStatus.ERROR,
       message: expect.any(String),
     })
   })

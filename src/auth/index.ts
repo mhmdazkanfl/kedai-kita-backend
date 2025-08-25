@@ -1,78 +1,20 @@
-import Elysia, { t } from 'elysia'
-import bearer from '@elysiajs/bearer'
-import jwt from '@elysiajs/jwt'
-import authModel from './model'
-import { AppResponse } from '../common/model'
-import User from '../user'
-import { createJWTExp } from '../utils'
+import Elysia from 'elysia'
+import { authService, getUser } from './service'
+import { User } from '../user'
+import { authModel } from './model'
+import { commonModel } from '../common'
+import swagger from '@elysiajs/swagger'
 
-const authService = new Elysia({ name: 'auth/service' })
-  .use(
-    jwt({
-      name: 'jwt',
-      secret: process.env.JWT_SECRET!,
-    }),
-  )
+const auth = new Elysia({
+  prefix: '/auth',
+  detail: {
+    tags: ['Auth'],
+  },
+})
   .use(authModel)
-  .use(bearer())
-  .macro({
-    isAuth: {
-      beforeHandle: async ({
-        bearer,
-        status,
-        jwt,
-        cookie: { access_token },
-      }) => {
-        if (!bearer && !access_token)
-          return status(401, {
-            status: 'fail',
-            message: 'Tidak terotorisasi',
-          })
-
-        const tokenOk = await jwt.verify(access_token.value)
-        const bearerOk = await jwt.verify(bearer)
-
-        if (!bearerOk && !tokenOk)
-          return status(401, {
-            status: 'fail',
-            message: 'Tidak terotorisasi',
-          })
-      },
-    },
-  })
-
-const protectedRoute = new Elysia()
+  .use(commonModel)
   .use(authService)
-  .guard({
-    isAuth: true,
-    cookie: 'token',
-  })
-  .as('scoped')
 
-const auth = new Elysia({ prefix: '/auth' })
-  .use(authService)
-  .guard({
-    response: {
-      422: AppResponse.Fail,
-      500: AppResponse.Error,
-    },
-  })
-  .onError(({ code, error, status }) => {
-    console.error(error)
-    if (code === 'VALIDATION') {
-      return status(422, {
-        status: 'fail',
-        message: error.message,
-      })
-    }
-
-    if (code === 'UNKNOWN') {
-      return status(500, {
-        status: 'error',
-        message: 'Terjadi kesalahan yang tidak diketahui',
-      })
-    }
-  })
   .post(
     '/register',
     async ({ body: { username, password }, status }) => {
@@ -103,19 +45,19 @@ const auth = new Elysia({ prefix: '/auth' })
     {
       body: 'register',
       response: {
-        201: AppResponse.Success,
-        409: AppResponse.Fail,
+        201: 'success',
+        409: 'fail',
       },
     },
   )
+
   .post(
     '/login',
     async ({
-      cookie: { access_token, refresh_token },
       body: { username, password },
-      jwt,
-      set,
       status,
+      accessTokenJwt,
+      refreshTokenJwt,
     }) => {
       const user = await User.findByUsername(username)
       if (!user) {
@@ -133,42 +75,13 @@ const auth = new Elysia({ prefix: '/auth' })
         })
       }
 
-      const accessTokenExp = createJWTExp({ minutes: 15 })
-      const refreshTokenExp = createJWTExp({ days: 30 })
-      const currentTime = createJWTExp({})
-
-      const accessToken = await jwt.sign({
-        sub: user.id,
-        exp: accessTokenExp,
-        nbf: currentTime,
-        name: user.username,
+      const accessToken = await accessTokenJwt.sign({
+        id: user.id,
+        username: user.username,
       })
-
-      const refreshToken = await jwt.sign({
-        sub: user.id,
-        exp: refreshTokenExp,
-        nbf: currentTime,
-        name: user.username,
-      })
-
-      set.headers['content-type'] = 'application/json' // For some reason set value on cookie causing response body to plain/text
-
-      access_token.set({
-        value: accessToken,
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        maxAge: accessTokenExp,
-        path: '/',
-      })
-
-      refresh_token.set({
-        value: refreshToken,
-        httpOnly: true,
-        secure: true,
-        sameSite: 'strict',
-        maxAge: refreshTokenExp,
-        path: '/auth/refresh',
+      const refreshToken = await refreshTokenJwt.sign({
+        id: user.id,
+        username: user.username,
       })
 
       return status(200, {
@@ -185,23 +98,21 @@ const auth = new Elysia({ prefix: '/auth' })
     {
       body: 'login',
       response: {
-        200: t.Composite([
-          AppResponse.Success,
-          t.Object({
-            data: t.Object({
-              id: t.String({ format: 'uuid' }),
-              username: t.String(),
-              accessToken: t.String(),
-              refreshToken: t.String(),
-            }),
-          }),
-        ]),
-        401: AppResponse.Fail,
+        200: 'loginSuccess',
+        401: 'fail',
       },
-      cookie: 'tokenOptional',
     },
   )
-  .use(protectedRoute)
-  .get('/profile', () => 'Hi')
 
-export default auth
+  .use(getUser)
+  .post('/logout', ({ user, status }) => {}, {
+    detail: {
+      security: [
+        {
+          bearerAuth: [],
+        },
+      ],
+    },
+  })
+
+export { auth }

@@ -1,30 +1,114 @@
-// import { DatabaseService } from '@/database'
-// import { Status } from '@/common/enum'
+import bearer from '@elysiajs/bearer'
+import jwt from '@elysiajs/jwt'
+import Elysia, { t } from 'elysia'
+import db, { schema } from '../database'
+import { eq } from 'drizzle-orm'
+import { User } from '../user'
+import { createDateTime } from '../utils'
 
-// export abstract class AuthService {
-//   static findUserByUsername = async (username: string) =>
-//     await DatabaseService.findUserByUsername(username)
+abstract class Auth {
+  static async checkSession(refreshToken: string) {
+    const row = await db
+      .select()
+      .from(schema.refreshToken)
+      .where(eq(schema.refreshToken.token, refreshToken))
+      .limit(1)
 
-//   static async createUser(username: string, password: string) {
-//     const hashedPassword = await Bun.password.hash(password, 'argon2d')
-//     const [user] = await DatabaseService.insertUser(username, hashedPassword)
+    if (row.length === 0) return false
 
-//     return {
-//       status: Status.SUCCESS,
-//       message: 'Pengguna berhasil didaftarkan',
-//       data: {
-//         id: user.id,
-//         username,
-//       },
-//     }
-//   }
+    const token = row[0]
 
-//   static validatePassword = async (password: string, hashedPassword: string) =>
-//     await Bun.password.verify(password, hashedPassword)
+    return !token.isRevoked
+  }
 
-//   static insertRefreshToken = async (
-//     userId: string,
-//     token: string,
-//     expiresAt: Date,
-//   ) => await DatabaseService.insertRefreshToken(userId, token, expiresAt)
-// }
+  static async revokeSession(refreshToken: string) {
+    await db
+      .update(schema.refreshToken)
+      .set({ isRevoked: true })
+      .where(eq(schema.refreshToken.token, refreshToken))
+  }
+}
+
+const authService = new Elysia({ name: 'auth/service' })
+  .use(
+    jwt({
+      name: 'accessTokenJwt',
+      secret: process.env.JWT_SECRET!,
+      exp: createDateTime({ minutes: 15 }),
+      schema: t.Object({
+        id: t.String(),
+        username: t.String(),
+      }),
+    }),
+  )
+  .use(
+    jwt({
+      name: 'refreshTokenJwt',
+      secret: process.env.JWT_SECRET!,
+      exp: createDateTime({ days: 30 }),
+      schema: t.Object({
+        id: t.String(),
+        username: t.String(),
+      }),
+    }),
+  )
+  .use(bearer())
+  .macro({
+    isAuth: {
+      resolve: async ({ status, bearer, accessTokenJwt, set, path }) => {
+        if (!bearer) {
+          set.headers['www-authenticate'] =
+            `Bearer realm="${path}", error="invalid_request", error_description="Token tidak ditemukan"`
+          return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
+        }
+
+        const isValid = await accessTokenJwt.verify(bearer)
+        if (!isValid) {
+          set.headers['www-authenticate'] =
+            `Bearer realm="${path}", error="invalid_token", error_description="Access token kadaluarsa"`
+          return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
+        }
+
+        const user = await User.findByUsername(isValid.username)
+        if (!user) {
+          set.headers['www-authenticate'] =
+            `Bearer realm="${path}", error="user_not_found", error_description="Pengguna tidak ditemukan"`
+          return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
+        }
+        const { password, updatedAt, ...userProfile } = user
+        return { user: userProfile }
+      },
+    },
+    checkSession: {
+      beforeHandle: async ({ status, bearer, refreshTokenJwt, set, path }) => {
+        if (!bearer) {
+          set.headers['www-authenticate'] =
+            `Bearer realm="${path}", error="invalid_request", error_description="Token tidak ditemukan"`
+          return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
+        }
+
+        if (!(await Auth.checkSession(bearer))) {
+          set.headers['www-authenticate'] =
+            `Bearer realm="${path}", error="invalid_token", error_description="Refresh token kadaluarsa"`
+          return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
+        }
+
+        const isValid = await refreshTokenJwt.verify(bearer)
+        if (!isValid) {
+          Auth.revokeSession(bearer)
+          set.headers['www-authenticate'] =
+            `Bearer realm="${path}", error="invalid_token", error_description="Refresh token kadaluarsa"`
+          return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
+        }
+      },
+    },
+  })
+
+const getUser = new Elysia({ name: 'getUser/service' })
+  .use(authService)
+  .guard({
+    isAuth: true,
+  })
+  .as('scoped')
+
+export { authService, getUser }
