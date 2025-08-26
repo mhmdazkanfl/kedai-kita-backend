@@ -1,59 +1,228 @@
-import { Elysia, t } from 'elysia'
-import { authModel } from '@/auth/model'
-import { errorModel } from '@/common/model'
-import { Status } from '@/common/enum'
-import { AuthService } from '@/auth/service'
+import Elysia from 'elysia'
+import { Auth, authService, getUser } from './service'
+import { User } from '../user'
+import { authModel } from './model'
+import { commonModel } from '../common'
 
-export const auth = new Elysia({ prefix: '/auth', name: 'service/auth' })
+const auth = new Elysia({
+  prefix: '/auth',
+  detail: {
+    tags: ['Auth'],
+  },
+})
   .use(authModel)
-  .use(errorModel)
-  .guard({
-    response: {
-      400: 'errorFail',
-      409: 'errorFail',
-      422: 'errorFail',
-      500: 'errorError',
-    },
-  })
-  .onError(({ code, error, status }) => {
-    console.error('Error occurred:', error)
+  .use(commonModel)
+  .use(authService)
 
-    switch (code) {
-      case 'VALIDATION':
-        return status(422, {
-          status: Status.FAIL,
-          message: error.message,
-        })
-      case 'PARSE':
-        return status(400, {
-          status: Status.FAIL,
-          message: 'Gagal memparsing request body',
-        })
+  // Hook
+  .onError(({ error, code, status }) => {
+    if (code === 'VALIDATION') {
+      console.error('Error on validation: ', error.all)
+      return status(422, {
+        status: 'fail',
+        message: error.message,
+      })
+    }
 
-      default:
-        return status(500, {
-          status: Status.ERROR,
-          message: 'Terjadi kesalahan yang tidak diketahui',
-        })
+    if (code === 'UNKNOWN') {
+      console.error('Error on unknown: ', error)
+      return status(500, {
+        status: 'error',
+        message: 'Terjadi kesalahan yang tidak diketahui',
+      })
     }
   })
+
   .post(
     '/register',
     async ({ body: { username, password }, status }) => {
-      if (await AuthService.isUsernameTaken(username)) {
+      const isFound = await User.findByUsername(username)
+      if (isFound) {
         return status(409, {
-          status: Status.FAIL,
-          message: 'Nama pengguna sudah ada',
+          status: 'fail',
+          message: 'Pengguna sudah terdaftar',
         })
       }
 
-      const result = await AuthService.createUser(username, password)
-      return status(201, result)
+      const hashedPassword = await Bun.password.hash(password, 'argon2id')
+      const user = await User.add(username, hashedPassword)
+
+      if (!user) {
+        return status(409, {
+          status: 'fail',
+          message:
+            'Terjadi kesalahan saat mendaftarkan pengguna, coba lagi dalam beberapa saat',
+        })
+      }
+
+      return status(201, {
+        status: 'success',
+        message: 'Pengguna berhasil di daftarkan',
+      })
     },
     {
-      body: 'registerBody',
+      body: 'register',
       response: {
-        201: 'registerResponse',
+        201: 'success',
+        409: 'fail',
+        422: 'fail',
+        500: 'error',
       },
     },
   )
+
+  .post(
+    '/login',
+    async ({
+      body: { username, password },
+      status,
+      accessTokenJwt,
+      refreshTokenJwt,
+    }) => {
+      const user = await User.findByUsername(username)
+      if (!user) {
+        return status(401, {
+          status: 'fail',
+          message: 'Nama pengguna atau password salah',
+        })
+      }
+
+      const passwordValid = await Bun.password.verify(password, user.password)
+      if (!passwordValid) {
+        return status(401, {
+          status: 'fail',
+          message: 'Nama pengguna atau password salah',
+        })
+      }
+
+      const accessToken = await accessTokenJwt.sign({
+        id: user.id,
+        username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
+      })
+      const refreshToken = await refreshTokenJwt.sign({
+        id: user.id,
+        username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
+      })
+
+      await Auth.addSession(user.id, refreshToken)
+
+      return status(200, {
+        status: 'success',
+        message: 'Login berhasil',
+        data: {
+          id: user.id,
+          username: user.username,
+          accessToken,
+          refreshToken,
+        },
+      })
+    },
+    {
+      body: 'login',
+      response: {
+        200: 'loginSuccess',
+        401: 'fail',
+        422: 'fail',
+        500: 'error',
+      },
+    },
+  )
+
+  .post(
+    '/refresh',
+    async ({
+      accessTokenJwt,
+      refreshTokenJwt,
+      status,
+      body: { refreshToken },
+    }) => {
+      const isRevoked = await Auth.checkSession(refreshToken)
+      if (isRevoked) {
+        return status(401, {
+          status: 'fail',
+          message: 'Refresh token kadaluarsa',
+        })
+      }
+
+      const user = await refreshTokenJwt.verify(refreshToken)
+      if (!user) {
+        return status(401, {
+          status: 'fail',
+          message: 'Refresh token tidak valid atau kadaluarsa',
+        })
+      }
+
+      const newAccessToken = await accessTokenJwt.sign({
+        id: user.id,
+        username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
+      })
+      const newRefreshToken = await refreshTokenJwt.sign({
+        id: user.id,
+        username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
+      })
+
+      await Auth.revokeSession(refreshToken)
+      await Auth.addSession(user.id, newRefreshToken)
+
+      return status(201, {
+        status: 'success',
+        message: 'Refresh dan access token berhasil di buat',
+        data: {
+          id: user.id,
+          username: user.username,
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+        },
+      })
+    },
+    {
+      body: 'refresh',
+      response: {
+        201: 'loginSuccess',
+        401: 'fail',
+        422: 'fail',
+        500: 'error',
+      },
+    },
+  )
+
+  // Required bearer
+  .guard({
+    // Putting this swagger security config in a separate elysia instance
+    // does not work. Even after changing the scope
+    detail: {
+      security: [{ bearerAuth: [] }],
+    },
+  })
+  // Protected route
+  .use(getUser)
+
+  .post(
+    '/logout',
+    async ({ status, body: { refreshToken } }) => {
+      await Auth.revokeSession(refreshToken)
+      return status(200, {
+        status: 'success',
+        message: 'Logout berhasil',
+      })
+    },
+    {
+      body: 'refresh',
+      response: {
+        200: 'success',
+        401: 'fail',
+        422: 'fail',
+        500: 'error',
+      },
+    },
+  )
+
+export { auth }

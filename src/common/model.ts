@@ -1,17 +1,23 @@
-import { Elysia, t } from 'elysia'
-import { Status } from '@/common/enum'
+import Elysia, { t } from 'elysia'
+import { ResponseStatus } from './enum'
+import type { ResponseStatusType } from './enum'
 
-export const errorModel = new Elysia({ name: 'model/error' }).model({
-  errorFail: t.Object({
-    status: t.UnionEnum([Status.SUCCESS, Status.FAIL, Status.ERROR], {
-      default: Status.FAIL,
-    }),
+const createResponse = (defaultStatus: ResponseStatusType) => {
+  return t.Object({
+    status: t.UnionEnum(
+      [ResponseStatus.SUCCESS, ResponseStatus.FAIL, ResponseStatus.ERROR],
+      {
+        default: defaultStatus,
+      },
+    ),
     message: t.String(),
-  }),
-  errorError: t.Object({
-    status: t.UnionEnum([Status.SUCCESS, Status.FAIL, Status.ERROR], {
-      default: Status.ERROR,
-    }),
-    message: t.String(),
-  }),
+  })
+}
+
+const commonModel = new Elysia().model({
+  fail: createResponse(ResponseStatus.FAIL),
+  error: createResponse(ResponseStatus.ERROR),
+  success: createResponse(ResponseStatus.SUCCESS),
 })
+
+export { createResponse, commonModel }
