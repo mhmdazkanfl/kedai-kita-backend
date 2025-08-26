@@ -98,10 +98,14 @@ const auth = new Elysia({
       const accessToken = await accessTokenJwt.sign({
         id: user.id,
         username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
       })
       const refreshToken = await refreshTokenJwt.sign({
         id: user.id,
         username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
       })
 
       Auth.addSession(user.id, refreshToken)
