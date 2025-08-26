@@ -108,7 +108,7 @@ const auth = new Elysia({
         jti: crypto.randomUUID(),
       })
 
-      Auth.addSession(user.id, refreshToken)
+      await Auth.addSession(user.id, refreshToken)
 
       return status(200, {
         status: 'success',
@@ -140,29 +140,33 @@ const auth = new Elysia({
       status,
       body: { refreshToken },
     }) => {
-      const isValid = await refreshTokenJwt.verify(refreshToken)
-      if (!isValid) {
+      const isRevoked = await Auth.checkSession(refreshToken)
+      if (isRevoked) {
+        return status(401, {
+          status: 'fail',
+          message: 'Refresh token kadaluarsa',
+        })
+      }
+
+      const user = await refreshTokenJwt.verify(refreshToken)
+      if (!user) {
         return status(401, {
           status: 'fail',
           message: 'Refresh token tidak valid atau kadaluarsa',
         })
       }
 
-      const user = await User.findByUsername(isValid.username)
-      if (!user) {
-        return status(401, {
-          status: 'fail',
-          message: 'Pengguna tidak ditemukan',
-        })
-      }
-
       const newAccessToken = await accessTokenJwt.sign({
         id: user.id,
         username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
       })
       const newRefreshToken = await refreshTokenJwt.sign({
         id: user.id,
         username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
       })
 
       await Auth.revokeSession(refreshToken)
@@ -190,7 +194,7 @@ const auth = new Elysia({
     },
   )
 
-  // Protected route
+  // Required bearer
   .guard({
     // Putting this swagger security config in a separate elysia instance
     // does not work. Even after changing the scope
@@ -198,6 +202,7 @@ const auth = new Elysia({
       security: [{ bearerAuth: [] }],
     },
   })
+  // Protected route
   .use(getUser)
 
   .post(

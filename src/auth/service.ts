@@ -26,7 +26,7 @@ abstract class Auth {
 
     const token = row[0]
 
-    return !token.isRevoked
+    return token.isRevoked
   }
 
   static async revokeSession(refreshToken: string) {
@@ -83,7 +83,7 @@ const authService = new Elysia({ name: 'auth/service' })
             `Bearer realm="${path}", error="user_not_found", error_description="Pengguna tidak ditemukan"`
           return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
         }
-        const { password, updatedAt, ...userProfile } = user
+        const { password, ...userProfile } = user
         return { user: userProfile }
       },
     },
