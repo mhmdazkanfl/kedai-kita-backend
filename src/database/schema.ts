@@ -35,7 +35,7 @@ const refreshToken = pgTable(
 )
 
 // Menu
-export const menuCategories = pgTable('menu_categories', {
+const menuCategories = pgTable('menu_categories', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name').notNull().unique(),
   description: text('description'),
@@ -55,7 +55,7 @@ const menu = pgTable('menu', {
 })
 
 // Order
-export const orderStatusEnum = pgEnum('order_status', [
+const orderStatusEnum = pgEnum('order_status', [
   'pending',
   'preparing',
   'ready_for_pickup',
@@ -63,7 +63,7 @@ export const orderStatusEnum = pgEnum('order_status', [
   'cancelled',
 ])
 
-export const orders = pgTable('orders', {
+const orders = pgTable('orders', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: uuid('user_id')
     .references(() => user.id, { onDelete: 'cascade' }) // Delete orders if user is deleted
@@ -76,7 +76,7 @@ export const orders = pgTable('orders', {
 
 // -- Order Items Table (Join Table) --
 // Links menu items to orders, creating the line items for each order.
-export const orderItems = pgTable('order_items', {
+const orderItems = pgTable('order_items', {
   id: uuid('id').defaultRandom().primaryKey(),
   orderId: uuid('order_id')
     .references(() => orders.id, { onDelete: 'cascade' }) // Delete line item if order is deleted
@@ -90,7 +90,15 @@ export const orderItems = pgTable('order_items', {
   priceAtTimeOfOrder: integer('price_at_time_of_order').notNull(),
 })
 
-export const schema = { user, refreshToken, menu, menuCategories }
+export {
+  user,
+  refreshToken,
+  menuCategories,
+  menu,
+  orders,
+  orderItems,
+  orderStatusEnum,
+}
 
 // Relations
 // export const userRelations = relations(user, ({ many }) => ({

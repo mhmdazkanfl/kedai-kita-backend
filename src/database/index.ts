@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/node-postgres'
 
 const db = drizzle(process.env.DATABASE_URL!)
 
-export { schema } from './schema'
+export * as schema from './schema'
 export default db
 // if (error instanceof DrizzleQueryError) {
 //   const code = (error.cause as SystemError).code
