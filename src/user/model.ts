@@ -8,7 +8,7 @@ const user = t.Object({
   updatedAt: t.Date(),
 })
 
-const userModel = new Elysia({ name: 'user/model' }).model({
+const userModel = new Elysia().model({
   user: user,
 })
 

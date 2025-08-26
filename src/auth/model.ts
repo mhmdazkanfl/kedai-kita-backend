@@ -42,6 +42,18 @@ const login = t.Object(
   },
 )
 
+const refresh = t.Object(
+  {
+    refreshToken: t.String({
+      minLength: 1,
+      error: 'Refresh token harus berupa string dan tidak boleh kosong',
+    }),
+  },
+  {
+    error: 'Request body harus berupa objek',
+  },
+)
+
 const loginSuccess = t.Composite([
   createResponse(ResponseStatus.SUCCESS),
   t.Object({
@@ -54,15 +66,11 @@ const loginSuccess = t.Composite([
   }),
 ])
 
-const headers = t.Object({
-  authorization: t.TemplateLiteral('Bearer ${string}'),
-})
-
-const authModel = new Elysia({ name: 'auth/model' }).model({
+const authModel = new Elysia().model({
   register: register,
   login: login,
   loginSuccess: loginSuccess,
-  headers: headers,
+  refresh: refresh,
 })
 
 export { authModel }

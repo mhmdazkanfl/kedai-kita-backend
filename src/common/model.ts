@@ -14,7 +14,7 @@ const createResponse = (defaultStatus: ResponseStatusType) => {
   })
 }
 
-const commonModel = new Elysia({ name: 'common/model' }).model({
+const commonModel = new Elysia().model({
   fail: createResponse(ResponseStatus.FAIL),
   error: createResponse(ResponseStatus.ERROR),
   success: createResponse(ResponseStatus.SUCCESS),

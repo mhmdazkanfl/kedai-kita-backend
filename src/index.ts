@@ -7,7 +7,6 @@ import { auth } from './auth'
 const app = new Elysia()
   .use(
     swagger({
-      path: '/docs',
       documentation: {
         tags: [
           { name: 'Auth', description: 'Authentication related endpoints' },
