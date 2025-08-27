@@ -8,8 +8,6 @@ const user = t.Object({
   updatedAt: t.Date(),
 })
 
-const userModel = new Elysia().model({
+export const userModel = new Elysia().model({
   user: user,
 })
-
-export { userModel }

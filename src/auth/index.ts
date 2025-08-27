@@ -3,8 +3,9 @@ import { Auth, authService, getUser } from './service'
 import { User } from '../user'
 import { authModel } from './model'
 import { commonModel } from '../common'
+import db from '../database'
 
-const auth = new Elysia({
+export const auth = new Elysia({
   prefix: '/auth',
   detail: {
     tags: ['Auth'],
@@ -36,7 +37,7 @@ const auth = new Elysia({
   .post(
     '/register',
     async ({ body: { username, password }, status }) => {
-      const isFound = await User.findByUsername(username)
+      const isFound = await User.findByUsername(username, db)
       if (isFound) {
         return status(409, {
           status: 'fail',
@@ -45,7 +46,7 @@ const auth = new Elysia({
       }
 
       const hashedPassword = await Bun.password.hash(password, 'argon2id')
-      const user = await User.add(username, hashedPassword)
+      const user = await User.add(username, hashedPassword, db)
 
       if (!user) {
         return status(409, {
@@ -79,7 +80,7 @@ const auth = new Elysia({
       accessTokenJwt,
       refreshTokenJwt,
     }) => {
-      const user = await User.findByUsername(username)
+      const user = await User.findByUsername(username, db)
       if (!user) {
         return status(401, {
           status: 'fail',
@@ -224,5 +225,3 @@ const auth = new Elysia({
       },
     },
   )
-
-export { auth }
