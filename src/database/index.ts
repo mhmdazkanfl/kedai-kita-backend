@@ -10,6 +10,10 @@ const db = drizzle({
   schema: schema,
 })
 
+export function getDatabaseExecutor(tx?: TransactionType) {
+  return tx ?? db
+}
+
 export type DatabaseType = typeof db
 export type TransactionType = Parameters<
   Parameters<DatabaseType['transaction']>[0]

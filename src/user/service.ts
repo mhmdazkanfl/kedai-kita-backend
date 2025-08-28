@@ -1,17 +1,16 @@
-import { DatabaseType, schema, TransactionType } from '../database'
+import { getDatabaseExecutor, schema, TransactionType } from '../database'
 
 export abstract class User {
-  static async findByUsername(
-    username: string,
-    db: DatabaseType | TransactionType,
-  ) {
-    return await db.query.user.findFirst({
+  static async findByUsername(username: string, tx?: TransactionType) {
+    const executor = getDatabaseExecutor(tx)
+    return await executor.query.user.findFirst({
       where: (user, { eq }) => eq(user.username, username),
     })
   }
 
-  static async findById(id: string, db: DatabaseType | TransactionType) {
-    return await db.query.user.findFirst({
+  static async findById(id: string, tx?: TransactionType) {
+    const executor = getDatabaseExecutor(tx)
+    return await executor.query.user.findFirst({
       where: (user, { eq }) => eq(user.id, id),
     })
   }
@@ -19,9 +18,10 @@ export abstract class User {
   static async add(
     username: string,
     hashedPassword: string,
-    db: DatabaseType | TransactionType,
+    tx?: TransactionType,
   ) {
-    const addedUser = await db
+    const executor = getDatabaseExecutor(tx)
+    const addedUser = await executor
       .insert(schema.user)
       .values({ username, password: hashedPassword })
       .returning()

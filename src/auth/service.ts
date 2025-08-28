@@ -1,10 +1,11 @@
 import bearer from '@elysiajs/bearer'
 import jwt from '@elysiajs/jwt'
 import Elysia, { t } from 'elysia'
-import db, { schema } from '../database'
+import db, { getDatabaseExecutor, schema } from '../database'
 import { eq } from 'drizzle-orm'
 import { User } from '../user'
 import { createDateTime } from '../utils'
+import { ResponseStatus } from '../common'
 
 export abstract class Auth {
   static async addSession(userId: string, refreshToken: string) {
@@ -37,23 +38,31 @@ export abstract class Auth {
   }
 
   static async register(username: string, password: string) {
-    return await db.transaction(async (tx) => {
-      const row = await tx
-        .select()
-        .from(schema.user)
-        .where(eq(schema.user.username, username))
-        .limit(1)
-
-      tx.query.user.findFirst()
-
-      if (row.length === 0) {
+    const executor = getDatabaseExecutor()
+    return await executor.transaction(async (tx) => {
+      const user = await User.findByUsername(username, tx)
+      if (user) {
         return {
-          status: 'fail',
+          status: ResponseStatus.FAIL,
           message: 'Pengguna sudah terdaftar',
         }
       }
 
-      return row.length === 0 ? null : row[0]
+      const hashedPassword = await Bun.password.hash(password, 'argon2id')
+      const newUser = await User.add(username, hashedPassword, tx)
+
+      if (!newUser) {
+        return {
+          status: ResponseStatus.FAIL,
+          message:
+            'Terjadi kesalahan saat mendaftarkan pengguna, coba lagi dalam beberapa saat',
+        }
+      }
+
+      return {
+        status: ResponseStatus.SUCCESS,
+        message: 'Pengguna berhasil terdaftar',
+      }
     })
   }
 }
@@ -98,7 +107,7 @@ export const authService = new Elysia({ name: 'auth/service' })
           return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
         }
 
-        const user = await User.findByUsername(isValid.username, db)
+        const user = await User.findByUsername(isValid.username)
         if (!user) {
           set.headers['www-authenticate'] =
             `Bearer realm="${path}", error="user_not_found", error_description="Pengguna tidak ditemukan"`

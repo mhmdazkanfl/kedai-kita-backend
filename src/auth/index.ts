@@ -32,33 +32,33 @@ export const auth = new Elysia({
         message: 'Terjadi kesalahan yang tidak diketahui',
       })
     }
+
+    if ((code as any) === 'ECONNREFUSED') {
+      console.error('Error on unknown: ', error)
+      return status(500, {
+        status: 'error',
+        message: 'Gagal terhubung ke database',
+      })
+    }
+
+    console.log('Error code: ', code)
+    console.log('Error details: ', error)
   })
 
   .post(
     '/register',
     async ({ body: { username, password }, status }) => {
-      const isFound = await User.findByUsername(username, db)
-      if (isFound) {
+      const result = await Auth.register(username, password)
+      if (result.message === 'fail') {
         return status(409, {
-          status: 'fail',
-          message: 'Pengguna sudah terdaftar',
-        })
-      }
-
-      const hashedPassword = await Bun.password.hash(password, 'argon2id')
-      const user = await User.add(username, hashedPassword, db)
-
-      if (!user) {
-        return status(409, {
-          status: 'fail',
-          message:
-            'Terjadi kesalahan saat mendaftarkan pengguna, coba lagi dalam beberapa saat',
+          status: result.status,
+          message: result.message,
         })
       }
 
       return status(201, {
-        status: 'success',
-        message: 'Pengguna berhasil di daftarkan',
+        status: result.status,
+        message: result.message,
       })
     },
     {
@@ -80,7 +80,7 @@ export const auth = new Elysia({
       accessTokenJwt,
       refreshTokenJwt,
     }) => {
-      const user = await User.findByUsername(username, db)
+      const user = await User.findByUsername(username)
       if (!user) {
         return status(401, {
           status: 'fail',
