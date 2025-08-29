@@ -17,6 +17,14 @@ export const auth = new Elysia({
 
   // Hook
   .onError(({ error, code, status }) => {
+    if ((code as any) === 'ECONNREFUSED') {
+      console.error('Error on unknown: ', error)
+      return status(500, {
+        status: 'error',
+        message: 'Gagal terhubung ke database',
+      })
+    }
+
     if (code === 'VALIDATION') {
       console.error('Error on validation: ', error.all)
       return status(422, {
@@ -33,14 +41,6 @@ export const auth = new Elysia({
       })
     }
 
-    if ((code as any) === 'ECONNREFUSED') {
-      console.error('Error on unknown: ', error)
-      return status(500, {
-        status: 'error',
-        message: 'Gagal terhubung ke database',
-      })
-    }
-
     console.log('Error code: ', code)
     console.log('Error details: ', error)
   })
@@ -49,7 +49,8 @@ export const auth = new Elysia({
     '/register',
     async ({ body: { username, password }, status }) => {
       const result = await Auth.register(username, password)
-      if (result.message === 'fail') {
+
+      if (result.code === 409) {
         return status(409, {
           status: result.status,
           message: result.message,
@@ -80,46 +81,24 @@ export const auth = new Elysia({
       accessTokenJwt,
       refreshTokenJwt,
     }) => {
-      const user = await User.findByUsername(username)
-      if (!user) {
+      const result = await Auth.login(
+        username,
+        password,
+        accessTokenJwt,
+        refreshTokenJwt,
+      )
+
+      if (result.code === 401) {
         return status(401, {
-          status: 'fail',
-          message: 'Nama pengguna atau password salah',
+          status: result.status,
+          message: result.message,
         })
       }
-
-      const passwordValid = await Bun.password.verify(password, user.password)
-      if (!passwordValid) {
-        return status(401, {
-          status: 'fail',
-          message: 'Nama pengguna atau password salah',
-        })
-      }
-
-      const accessToken = await accessTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-      const refreshToken = await refreshTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-
-      await Auth.addSession(user.id, refreshToken)
 
       return status(200, {
-        status: 'success',
-        message: 'Login berhasil',
-        data: {
-          id: user.id,
-          username: user.username,
-          accessToken,
-          refreshToken,
-        },
+        status: result.status,
+        message: result.message,
+        data: result.data,
       })
     },
     {
