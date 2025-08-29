@@ -8,7 +8,6 @@ import {
   boolean,
   index,
   integer,
-  decimal,
   pgEnum,
 } from 'drizzle-orm/pg-core'
 
@@ -18,6 +17,9 @@ export const user = pgTable('user', {
   password: varchar('password').notNull(), // Store hashed password
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+export type UserSelect = typeof user.$inferSelect
+export type UserInsert = typeof user.$inferInsert
 
 export const refreshToken = pgTable(
   'refresh_token',
@@ -34,12 +36,18 @@ export const refreshToken = pgTable(
   (table) => [index('user_id_idx').on(table.userId)],
 )
 
+export type RefreshTokenSelect = typeof refreshToken.$inferSelect
+export type RefreshTokenInsert = typeof refreshToken.$inferInsert
+
 // Menu
 export const menuCategories = pgTable('menu_categories', {
   id: uuid('id').defaultRandom().primaryKey(),
   name: varchar('name').notNull().unique(),
   description: text('description'),
 })
+
+export type MenuCategoriesSelect = typeof menuCategories.$inferSelect
+export type MenuCategoriesInsert = typeof menuCategories.$inferInsert
 
 export const menu = pgTable('menu', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -53,6 +61,9 @@ export const menu = pgTable('menu', {
   isAvailable: boolean('is_available').default(true).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
+
+export type MenuSelect = typeof menu.$inferSelect
+export type MenuInsert = typeof menu.$inferInsert
 
 // Order
 export const orderStatusEnum = pgEnum('order_status', [
@@ -73,6 +84,9 @@ export const orders = pgTable('orders', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
+export type OrdersSelect = typeof orders.$inferSelect
+export type OrdersInsert = typeof orders.$inferInsert
+
 // -- Order Items Table (Join Table) --
 // Links menu items to orders, creating the line items for each order.
 export const orderItems = pgTable('order_items', {
@@ -91,6 +105,9 @@ export const orderItems = pgTable('order_items', {
   // if the menu item's price is updated later.
   priceAtTimeOfOrder: integer('price_at_time_of_order').notNull(),
 })
+
+export type OrderItemsSelect = typeof orderItems.$inferSelect
+export type OrderItemsInsert = typeof orderItems.$inferInsert
 
 // Relations
 export const userRelations = relations(user, ({ many }) => ({

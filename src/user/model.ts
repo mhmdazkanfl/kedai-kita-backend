@@ -5,7 +5,6 @@ const user = t.Object({
   username: t.String(),
   password: t.String(),
   createdAt: t.Date(),
-  updatedAt: t.Date(),
 })
 
 export const userModel = new Elysia().model({

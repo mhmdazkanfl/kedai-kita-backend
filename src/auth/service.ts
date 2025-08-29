@@ -1,55 +1,16 @@
 import bearer from '@elysiajs/bearer'
 import jwt from '@elysiajs/jwt'
 import Elysia, { InferContext, t } from 'elysia'
-import { getDatabaseExecutor, schema, TransactionType } from '../database'
-import { eq } from 'drizzle-orm'
-import { User } from '../user'
+import db from '../database'
+import { UserRepository } from '../user'
 import { createDateTime } from '../utils'
 import { ResponseStatus, Response } from '../common'
+import { AuthRepository } from './respoitory'
 
-export abstract class Auth {
-  static async addSession(
-    userId: string,
-    refreshToken: string,
-    tx?: TransactionType,
-  ): Promise<void> {
-    const executor = getDatabaseExecutor(tx)
-    await executor.insert(schema.refreshToken).values({
-      userId,
-      token: refreshToken,
-      expiresAt: createDateTime({ days: 30, returnType: 'date' }),
-    })
-  }
-
-  static async checkSession(
-    refreshToken: string,
-    tx?: TransactionType,
-  ): Promise<boolean> {
-    const executor = getDatabaseExecutor(tx)
-    const result = await executor.query.refreshToken.findFirst({
-      where: eq(schema.refreshToken.token, refreshToken),
-    })
-
-    if (!result) return false
-
-    return result.isRevoked
-  }
-
-  static async revokeSession(
-    refreshToken: string,
-    tx?: TransactionType,
-  ): Promise<void> {
-    const executor = getDatabaseExecutor(tx)
-    await executor
-      .update(schema.refreshToken)
-      .set({ isRevoked: true })
-      .where(eq(schema.refreshToken.token, refreshToken))
-  }
-
+export abstract class AuthService {
   static async register(username: string, password: string): Promise<Response> {
-    const executor = getDatabaseExecutor()
-    const transactionResult = await executor.transaction(async (tx) => {
-      const user = await User.findByUsername(username, tx)
+    const transactionResult = await db.transaction(async (tx) => {
+      const user = await UserRepository.findByUsername(username, tx)
       if (user) {
         return {
           code: 409,
@@ -59,7 +20,7 @@ export abstract class Auth {
       }
 
       const hashedPassword = await Bun.password.hash(password, 'argon2id')
-      const newUser = await User.add(username, hashedPassword, tx)
+      const newUser = await UserRepository.add(username, hashedPassword, tx)
 
       if (!newUser) {
         return {
@@ -86,9 +47,8 @@ export abstract class Auth {
     accessTokenJwt: AccessTokenJwtDecorator,
     refreshTokenJwt: RefreshTokenJwtDecorator,
   ): Promise<Response> {
-    const executor = getDatabaseExecutor()
-    const transactionResult = await executor.transaction(async (tx) => {
-      const user = await User.findByUsername(username, tx)
+    const transactionResult = await db.transaction(async (tx) => {
+      const user = await UserRepository.findByUsername(username, tx)
       if (!user) {
         return {
           code: 401,
@@ -119,7 +79,7 @@ export abstract class Auth {
         jti: crypto.randomUUID(),
       })
 
-      await Auth.addSession(user.id, refreshToken, tx)
+      await AuthRepository.addSession(user.id, refreshToken, tx)
 
       return {
         code: 200,
@@ -135,6 +95,71 @@ export abstract class Auth {
     })
 
     return transactionResult
+  }
+
+  static async refresh(
+    refreshToken: string,
+    accessTokenJwt: AccessTokenJwtDecorator,
+    refreshTokenJwt: RefreshTokenJwtDecorator,
+  ): Promise<Response> {
+    const transactionResult = await db.transaction(async (tx) => {
+      const isRevoked = await AuthRepository.checkSession(refreshToken, tx)
+      if (isRevoked) {
+        return {
+          code: 401,
+          status: ResponseStatus.FAIL,
+          message: 'Refresh token kadaluarsa',
+        }
+      }
+
+      const user = await refreshTokenJwt.verify(refreshToken)
+      if (!user) {
+        return {
+          code: 401,
+          status: ResponseStatus.FAIL,
+          message: 'Refresh token tidak valid atau kadaluarsa',
+        }
+      }
+
+      const newAccessToken = await accessTokenJwt.sign({
+        id: user.id,
+        username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
+      })
+      const newRefreshToken = await refreshTokenJwt.sign({
+        id: user.id,
+        username: user.username,
+        iat: true,
+        jti: crypto.randomUUID(),
+      })
+
+      await AuthRepository.revokeSession(refreshToken, tx)
+      await AuthRepository.addSession(user.id, newRefreshToken, tx)
+
+      return {
+        code: 201,
+        status: ResponseStatus.SUCCESS,
+        message: 'Refresh dan access token berhasil di buat',
+        data: {
+          id: user.id,
+          username: user.username,
+          accessToken: newAccessToken,
+          refreshToken: newRefreshToken,
+        },
+      }
+    })
+
+    return transactionResult
+  }
+
+  static async logout(refreshToken: string): Promise<Response> {
+    await AuthRepository.revokeSession(refreshToken)
+    return {
+      code: 200,
+      status: ResponseStatus.SUCCESS,
+      message: 'Logout berhasil',
+    }
   }
 }
 
@@ -178,7 +203,7 @@ export const authService = new Elysia({ name: 'auth/service' })
           return status(401, { status: 'fail', message: 'Tidak terotorisasi' })
         }
 
-        const user = await User.findByUsername(isValid.username)
+        const user = await UserRepository.findByUsername(isValid.username)
         if (!user) {
           set.headers['www-authenticate'] =
             `Bearer realm="${path}", error="user_not_found", error_description="Pengguna tidak ditemukan"`

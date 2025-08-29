@@ -1,7 +1,6 @@
 import Elysia, { t } from 'elysia'
 import { ResponseStatus } from './enum'
 import type { ResponseStatusType } from './enum'
-import { NumOverloads } from 'bun-types/vendor/expect-type'
 
 export const createResponse = (defaultStatus: ResponseStatusType) => {
   return t.Object({

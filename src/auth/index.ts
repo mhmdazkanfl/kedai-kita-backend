@@ -1,9 +1,7 @@
 import Elysia from 'elysia'
-import { Auth, authService, getUser } from './service'
-import { User } from '../user'
+import { AuthService, authService, getUser } from './service'
 import { authModel } from './model'
 import { commonModel } from '../common'
-import db from '../database'
 
 export const auth = new Elysia({
   prefix: '/auth',
@@ -48,7 +46,7 @@ export const auth = new Elysia({
   .post(
     '/register',
     async ({ body: { username, password }, status }) => {
-      const result = await Auth.register(username, password)
+      const result = await AuthService.register(username, password)
 
       if (result.code === 409) {
         return status(409, {
@@ -81,7 +79,7 @@ export const auth = new Elysia({
       accessTokenJwt,
       refreshTokenJwt,
     }) => {
-      const result = await Auth.login(
+      const result = await AuthService.login(
         username,
         password,
         accessTokenJwt,
@@ -120,47 +118,23 @@ export const auth = new Elysia({
       status,
       body: { refreshToken },
     }) => {
-      const isRevoked = await Auth.checkSession(refreshToken)
-      if (isRevoked) {
+      const result = await AuthService.refresh(
+        refreshToken,
+        accessTokenJwt,
+        refreshTokenJwt,
+      )
+
+      if (result.code === 401) {
         return status(401, {
-          status: 'fail',
-          message: 'Refresh token kadaluarsa',
+          status: result.status,
+          message: result.message,
         })
       }
-
-      const user = await refreshTokenJwt.verify(refreshToken)
-      if (!user) {
-        return status(401, {
-          status: 'fail',
-          message: 'Refresh token tidak valid atau kadaluarsa',
-        })
-      }
-
-      const newAccessToken = await accessTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-      const newRefreshToken = await refreshTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-
-      await Auth.revokeSession(refreshToken)
-      await Auth.addSession(user.id, newRefreshToken)
 
       return status(201, {
-        status: 'success',
-        message: 'Refresh dan access token berhasil di buat',
-        data: {
-          id: user.id,
-          username: user.username,
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-        },
+        status: result.status,
+        message: result.message,
+        data: result.data,
       })
     },
     {
@@ -188,10 +162,18 @@ export const auth = new Elysia({
   .post(
     '/logout',
     async ({ status, body: { refreshToken } }) => {
-      await Auth.revokeSession(refreshToken)
-      return status(200, {
-        status: 'success',
-        message: 'Logout berhasil',
+      const result = await AuthService.logout(refreshToken)
+
+      if (result.code === 200) {
+        return status(200, {
+          status: result.status,
+          message: result.message,
+        })
+      }
+
+      return status(500, {
+        status: result.status,
+        message: result.message,
       })
     },
     {

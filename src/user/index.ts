@@ -1,2 +1,2 @@
-export { User } from './service'
+export { UserRepository } from './repository'
 export { userModel } from './model'
