@@ -103,8 +103,16 @@ export abstract class AuthService {
     refreshTokenJwt: RefreshTokenJwtDecorator,
   ): Promise<Response> {
     const transactionResult = await db.transaction(async (tx) => {
-      const isRevoked = await AuthRepository.checkSession(refreshToken, tx)
-      if (isRevoked) {
+      const oldSession = await AuthRepository.getSession(refreshToken, tx)
+      if (!oldSession) {
+        return {
+          code: 401,
+          status: ResponseStatus.FAIL,
+          message: 'Refresh token tidak valid',
+        }
+      }
+
+      if (oldSession.isRevoked) {
         return {
           code: 401,
           status: ResponseStatus.FAIL,
@@ -117,7 +125,7 @@ export abstract class AuthService {
         return {
           code: 401,
           status: ResponseStatus.FAIL,
-          message: 'Refresh token tidak valid atau kadaluarsa',
+          message: 'Refresh token kadaluarsa',
         }
       }
 
@@ -154,12 +162,27 @@ export abstract class AuthService {
   }
 
   static async logout(refreshToken: string): Promise<Response> {
-    await AuthRepository.revokeSession(refreshToken)
-    return {
-      code: 200,
-      status: ResponseStatus.SUCCESS,
-      message: 'Logout berhasil',
-    }
+    const transactionResult = await db.transaction(async (tx) => {
+      const oldRefreshToken = await AuthRepository.getSession(refreshToken, tx)
+
+      if (!oldRefreshToken) {
+        return {
+          code: 401,
+          status: ResponseStatus.FAIL,
+          message: 'Refresh token tidak valid',
+        }
+      }
+
+      await AuthRepository.revokeSession(refreshToken)
+
+      return {
+        code: 200,
+        status: ResponseStatus.SUCCESS,
+        message: 'Logout berhasil',
+      }
+    })
+
+    return transactionResult
   }
 }
 

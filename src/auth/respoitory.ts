@@ -1,6 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { getDatabaseExecutor, schema, TransactionType } from '../database'
 import { createDateTime } from '../utils'
+import { RefreshTokenSelect } from '../database/schema'
 
 export abstract class AuthRepository {
   static async addSession(
@@ -16,18 +17,14 @@ export abstract class AuthRepository {
     })
   }
 
-  static async checkSession(
+  static async getSession(
     refreshToken: string,
     tx?: TransactionType,
-  ): Promise<boolean> {
+  ): Promise<RefreshTokenSelect | undefined> {
     const executor = getDatabaseExecutor(tx)
-    const result = await executor.query.refreshToken.findFirst({
+    return await executor.query.refreshToken.findFirst({
       where: eq(schema.refreshToken.token, refreshToken),
     })
-
-    if (!result) return false
-
-    return result.isRevoked
   }
 
   static async revokeSession(
