@@ -164,14 +164,7 @@ export const auth = new Elysia({
     async ({ status, body: { refreshToken } }) => {
       const result = await AuthService.logout(refreshToken)
 
-      if (result.code === 200) {
-        return status(200, {
-          status: result.status,
-          message: result.message,
-        })
-      }
-
-      return status(500, {
+      return status(200, {
         status: result.status,
         message: result.message,
       })
