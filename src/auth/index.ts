@@ -179,3 +179,5 @@ export const auth = new Elysia({
       },
     },
   )
+
+export { getUser }
