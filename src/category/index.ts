@@ -12,6 +12,37 @@ export const category = new Elysia({
 }) // Required bearer
   .use(categoryModel)
   .use(commonModel)
+
+  // Hook
+  .onError(({ error, code, status }) => {
+    if ((code as any) === 'ECONNREFUSED') {
+      console.error('Error on unknown: ', error)
+      return status(500, {
+        status: 'error',
+        message: 'Gagal terhubung ke database',
+      })
+    }
+
+    if (code === 'VALIDATION') {
+      console.error('Error on validation: ', error.all)
+      return status(422, {
+        status: 'fail',
+        message: error.message,
+      })
+    }
+
+    if (code === 'UNKNOWN') {
+      console.error('Error on unknown: ', error)
+      return status(500, {
+        status: 'error',
+        message: 'Terjadi kesalahan yang tidak diketahui',
+      })
+    }
+
+    console.log('Error code: ', code)
+    console.log('Error details: ', error)
+  })
+
   .guard({
     // Putting this swagger security config in a separate elysia instance
     // does not work. Even after changing the scope
@@ -23,19 +54,49 @@ export const category = new Elysia({
   .use(getUser)
 
   .get(
-    '/',
+    '',
     async ({ status }) => {
       const categories = await CategoryService.getAll()
       return status(200, {
-        status: 'success',
-        message: 'Kategori berhasil diambil',
-        data: categories,
+        status: categories.status,
+        message: categories.message,
+        data: categories.data,
       })
     },
     {
       response: {
         200: 'getAllCategories',
         401: 'fail',
+        500: 'error',
+      },
+    },
+  )
+
+  .post(
+    '/add',
+    async ({ status, body: { name, description } }) => {
+      const category = await CategoryService.add(name, description)
+
+      switch (category.code) {
+        case 201:
+          return status(category.code, {
+            status: category.status,
+            message: category.message,
+            data: category.data,
+          })
+        case 409:
+          return status(category.code, {
+            status: category.status,
+            message: category.message,
+          })
+      }
+    },
+    {
+      body: 'addCategory',
+      response: {
+        201: 'success',
+        401: 'fail',
+        409: 'fail',
         500: 'error',
       },
     },

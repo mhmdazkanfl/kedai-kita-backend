@@ -2,7 +2,10 @@ import Elysia, { t } from 'elysia'
 import { createResponse, ResponseStatus } from '../common'
 
 const addCategory = t.Object({
-  name: t.String(),
+  name: t.String({
+    minLength: 1,
+    error: 'Nama kategori harus berupa string dan tidak boleh kosong',
+  }),
   description: t.Optional(t.Union([t.String(), t.Null()])),
 })
 
