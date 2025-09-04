@@ -1,8 +1,8 @@
 import { describe, expect, it, jest } from 'bun:test'
 import { treaty } from '@elysiajs/eden'
-import auth from '../src/auth'
 import db from '../src/database'
 import { ResponseStatus } from '../src/common/enum'
+import { auth } from '../src/auth'
 
 const api = treaty(auth)
 
