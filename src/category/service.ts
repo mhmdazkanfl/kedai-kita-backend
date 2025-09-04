@@ -43,14 +43,26 @@ export abstract class CategoryService {
   }
 
   static async delete(id: string): Promise<Response> {
-    await db.transaction(async (tx) => {
+    const result = await db.transaction(async (tx) => {
+      const category = await CategoryRepository.getById(id, tx)
+
+      if (!category) {
+        return {
+          code: 404,
+          status: ResponseStatus.FAIL,
+          message: 'Kategori tidak ditemukan',
+        }
+      }
+
       await CategoryRepository.delete(id, tx)
+
+      return {
+        code: 200,
+        status: ResponseStatus.SUCCESS,
+        message: 'Kategori berhasil dihapus',
+      }
     })
 
-    return {
-      code: 200,
-      status: ResponseStatus.SUCCESS,
-      message: 'Kategori berhasil dihapus',
-    }
+    return result
   }
 }

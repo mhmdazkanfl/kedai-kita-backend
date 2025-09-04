@@ -12,6 +12,16 @@ export abstract class CategoryRepository {
     return await executor.query.menuCategories.findMany()
   }
 
+  static async getById(
+    id: string,
+    tx?: TransactionType,
+  ): Promise<MenuCategoriesSelect | undefined> {
+    const executor = getDatabaseExecutor(tx)
+    return await executor.query.menuCategories.findFirst({
+      where: eq(menuCategories.id, id),
+    })
+  }
+
   static async add(
     name: string,
     description?: string | null,

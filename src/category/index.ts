@@ -89,6 +89,11 @@ export const category = new Elysia({
             status: category.status,
             message: category.message,
           })
+        default:
+          return status(500, {
+            status: 'error',
+            message: 'Terjadi kesalahan yang tidak diketahui',
+          })
       }
     },
     {
@@ -97,6 +102,47 @@ export const category = new Elysia({
         201: 'success',
         401: 'fail',
         409: 'fail',
+        422: 'fail',
+        500: 'error',
+      },
+    },
+  )
+
+  .delete(
+    '/delete/:id',
+    async ({ status, params: { id } }) => {
+      const result = await CategoryService.delete(id)
+
+      switch (result.code) {
+        case 200:
+          return status(result.code, {
+            status: result.status,
+            message: result.message,
+          })
+        case 404:
+          return status(result.code, {
+            status: result.status,
+            message: result.message,
+          })
+        default:
+          return status(500, {
+            status: 'error',
+            message: 'Terjadi kesalahan yang tidak diketahui',
+          })
+      }
+    },
+    {
+      params: t.Object({
+        id: t.String({
+          format: 'uuid',
+          error: 'ID kategori harus berupa UUID yang valid',
+        }),
+      }),
+      response: {
+        200: 'success',
+        401: 'fail',
+        404: 'fail',
+        422: 'fail',
         500: 'error',
       },
     },
