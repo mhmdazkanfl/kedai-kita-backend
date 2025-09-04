@@ -1,10 +1,9 @@
 import Elysia from 'elysia'
-import { Auth, authService, getUser } from './service'
-import { User } from '../user'
+import { AuthService, authService, getUser } from './service'
 import { authModel } from './model'
 import { commonModel } from '../common'
 
-const auth = new Elysia({
+export const auth = new Elysia({
   prefix: '/auth',
   detail: {
     tags: ['Auth'],
@@ -16,6 +15,14 @@ const auth = new Elysia({
 
   // Hook
   .onError(({ error, code, status }) => {
+    if ((code as any) === 'ECONNREFUSED') {
+      console.error('Error on unknown: ', error)
+      return status(500, {
+        status: 'error',
+        message: 'Gagal terhubung ke database',
+      })
+    }
+
     if (code === 'VALIDATION') {
       console.error('Error on validation: ', error.all)
       return status(422, {
@@ -31,33 +38,26 @@ const auth = new Elysia({
         message: 'Terjadi kesalahan yang tidak diketahui',
       })
     }
+
+    console.log('Error code: ', code)
+    console.log('Error details: ', error)
   })
 
   .post(
     '/register',
     async ({ body: { username, password }, status }) => {
-      const isFound = await User.findByUsername(username)
-      if (isFound) {
-        return status(409, {
-          status: 'fail',
-          message: 'Pengguna sudah terdaftar',
-        })
-      }
+      const result = await AuthService.register(username, password)
 
-      const hashedPassword = await Bun.password.hash(password, 'argon2id')
-      const user = await User.add(username, hashedPassword)
-
-      if (!user) {
+      if (result.code === 409) {
         return status(409, {
-          status: 'fail',
-          message:
-            'Terjadi kesalahan saat mendaftarkan pengguna, coba lagi dalam beberapa saat',
+          status: result.status,
+          message: result.message,
         })
       }
 
       return status(201, {
-        status: 'success',
-        message: 'Pengguna berhasil di daftarkan',
+        status: result.status,
+        message: result.message,
       })
     },
     {
@@ -79,46 +79,24 @@ const auth = new Elysia({
       accessTokenJwt,
       refreshTokenJwt,
     }) => {
-      const user = await User.findByUsername(username)
-      if (!user) {
+      const result = await AuthService.login(
+        username,
+        password,
+        accessTokenJwt,
+        refreshTokenJwt,
+      )
+
+      if (result.code === 401) {
         return status(401, {
-          status: 'fail',
-          message: 'Nama pengguna atau password salah',
+          status: result.status,
+          message: result.message,
         })
       }
-
-      const passwordValid = await Bun.password.verify(password, user.password)
-      if (!passwordValid) {
-        return status(401, {
-          status: 'fail',
-          message: 'Nama pengguna atau password salah',
-        })
-      }
-
-      const accessToken = await accessTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-      const refreshToken = await refreshTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-
-      await Auth.addSession(user.id, refreshToken)
 
       return status(200, {
-        status: 'success',
-        message: 'Login berhasil',
-        data: {
-          id: user.id,
-          username: user.username,
-          accessToken,
-          refreshToken,
-        },
+        status: result.status,
+        message: result.message,
+        data: result.data,
       })
     },
     {
@@ -140,47 +118,23 @@ const auth = new Elysia({
       status,
       body: { refreshToken },
     }) => {
-      const isRevoked = await Auth.checkSession(refreshToken)
-      if (isRevoked) {
+      const result = await AuthService.refresh(
+        refreshToken,
+        accessTokenJwt,
+        refreshTokenJwt,
+      )
+
+      if (result.code === 401) {
         return status(401, {
-          status: 'fail',
-          message: 'Refresh token kadaluarsa',
+          status: result.status,
+          message: result.message,
         })
       }
-
-      const user = await refreshTokenJwt.verify(refreshToken)
-      if (!user) {
-        return status(401, {
-          status: 'fail',
-          message: 'Refresh token tidak valid atau kadaluarsa',
-        })
-      }
-
-      const newAccessToken = await accessTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-      const newRefreshToken = await refreshTokenJwt.sign({
-        id: user.id,
-        username: user.username,
-        iat: true,
-        jti: crypto.randomUUID(),
-      })
-
-      await Auth.revokeSession(refreshToken)
-      await Auth.addSession(user.id, newRefreshToken)
 
       return status(201, {
-        status: 'success',
-        message: 'Refresh dan access token berhasil di buat',
-        data: {
-          id: user.id,
-          username: user.username,
-          accessToken: newAccessToken,
-          refreshToken: newRefreshToken,
-        },
+        status: result.status,
+        message: result.message,
+        data: result.data,
       })
     },
     {
@@ -208,10 +162,11 @@ const auth = new Elysia({
   .post(
     '/logout',
     async ({ status, body: { refreshToken } }) => {
-      await Auth.revokeSession(refreshToken)
+      const result = await AuthService.logout(refreshToken)
+
       return status(200, {
-        status: 'success',
-        message: 'Logout berhasil',
+        status: result.status,
+        message: result.message,
       })
     },
     {
@@ -224,5 +179,3 @@ const auth = new Elysia({
       },
     },
   )
-
-export { auth }

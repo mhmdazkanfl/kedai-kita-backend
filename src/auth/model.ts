@@ -66,11 +66,9 @@ const loginSuccess = t.Composite([
   }),
 ])
 
-const authModel = new Elysia().model({
+export const authModel = new Elysia().model({
   register: register,
   login: login,
   loginSuccess: loginSuccess,
   refresh: refresh,
 })
-
-export { authModel }

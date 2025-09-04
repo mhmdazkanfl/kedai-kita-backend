@@ -1,8 +1,24 @@
 import { drizzle } from 'drizzle-orm/node-postgres'
+import * as schema from './schema'
 
-const db = drizzle(process.env.DATABASE_URL!)
+const db = drizzle({
+  connection: {
+    connectionString: process.env.DATABASE_URL!,
+    ssl: false,
+  },
+  schema: schema,
+})
 
-export * as schema from './schema'
+export function getDatabaseExecutor(tx?: TransactionType) {
+  return tx ?? db
+}
+
+export type DatabaseType = typeof db
+export type TransactionType = Parameters<
+  Parameters<DatabaseType['transaction']>[0]
+>[0]
+
+export { schema }
 export default db
 // if (error instanceof DrizzleQueryError) {
 //   const code = (error.cause as SystemError).code
